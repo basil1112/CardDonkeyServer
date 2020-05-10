@@ -283,7 +283,10 @@ io.on('connection', function (socket) {
 			console.log("NEXT PLAYER",nextPlayer);
 
 			io.sockets.connected[socket.largerOnePlayedBy.id].emit(constants.SOCKET_EVENTS.ADD_CARD, JSON.stringify(nextPlayer));
+			io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
 
+			
+			//why no changes :( 
 
 		}
 
