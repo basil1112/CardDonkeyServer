@@ -1,7 +1,7 @@
+
 // Setup basic express server
 var express = require('express');
 var compression = require('compression')
-var request = require('request');
 var bodyParser = require('body-parser');
 var app = express();
 var server = require('http').createServer(app);
@@ -12,9 +12,8 @@ var Deck = require('./deck')
 var Round = require('./round');
 var constants = require('./constants');
 var port = 3000;
-const https = require('https');
-var querystring = require('querystring');
-var url = require('url');
+
+
 
 server.listen(port, function () {
 	console.log('Server listening at port %d', port);
@@ -31,6 +30,7 @@ app.use(bodyParser.json({ limit: '100mb' }));
 
 
 app.get('/', function (req, res) {
+	console.log("SOMETHING");
 	res.sendFile(__dirname + '/index.html');
 });
 
@@ -40,7 +40,8 @@ var roomList = new Map();
 
 io.on('connection', function (socket) {
 	var addedUser = false;
-	console.log(socket.deviceId + ' client device connected');
+
+	console.log(socket.id + ' client device connected');
 
 	io.to(socket).emit('on_connection', {
 		action: 'on_connection',
@@ -86,7 +87,7 @@ io.on('connection', function (socket) {
 			roomList.get(joinPlayerData.roomId).player.push(player);
 			io.to(roomList.get(joinPlayerData.roomId).roomId).emit(constants.SOCKET_EVENTS.NOTIFY_PLAYER_JOIN, JSON.stringify(player));
 
-			if (roomList.get(joinPlayerData.roomId).roomTotalCount == (roomList.get(joinPlayerData.roomId).player).length) {
+			if (roomList.get(joinPlayerData.roomId).roomTotalCount === (roomList.get(joinPlayerData.roomId).player).length) {
 				console.log("READY TO START THE GAME");
 			}
 		}
@@ -178,7 +179,7 @@ io.on('connection', function (socket) {
 		var currentPlayer = playerArray.find(element => element.id == playedData.id);
 
 		roundsInRoom = currentRoom.getRounds();
-		
+
 		if (roundsInRoom.length > 0) {
 			socket.lastPlayedCard = roundsInRoom[roundsInRoom.length - 1].getLastPlayedCard();
 			socket.largerOnePlayedBy = roundsInRoom[roundsInRoom.length - 1].getLargerOneplayedBy();
@@ -197,25 +198,25 @@ io.on('connection', function (socket) {
 			socket.largestValueInRound = -1;
 		}
 
-		console.log(playedData.card[0]+"CARD : "+ socket.lastPlayedCard + "SAME CLUB ->" + Deck.isSameClub(socket.lastPlayedCard, playedData.card[0])); 
+		console.log(playedData.card[0] + "CARD : " + socket.lastPlayedCard + "SAME CLUB ->" + Deck.isSameClub(socket.lastPlayedCard, playedData.card[0]));
 
 		/* SAME CLUBS CONDITION */
 		if (Deck.isSameClub(socket.lastPlayedCard, playedData.card[0]) || socket.lastPlayedCard == undefined) {
 
 			var round = new Round()
 			round.addPlayedCards(playedData.card[0], currentPlayer);
-		
+
 
 			if (typeof socket.lastPlayedCard !== "undefined") {
-				
+
 				if (socket.largestValueInRound < playedData.card[0]) {
 					round.updateLargerCardBy(currentPlayer);
 					socket.largestValueInRound = playedData.card[0];
 				}
-				else{
+				else {
 					round.updateLargerCardBy(socket.largerOnePlayedBy);
 				}
-				
+
 			}
 			else {
 				/*current val greater than last val*/
@@ -225,31 +226,32 @@ io.on('connection', function (socket) {
 				}
 			}
 
-			var nextPlayer =  playerArray.find(element => element.position == ((currentPlayer.position+1) >= currentRoom.getRoomCount() ? 0 : (currentPlayer.position+1) ));
+			var nextPlayer = playerArray.find(element => element.position == ((currentPlayer.position + 1) >= currentRoom.getRoomCount() ? 0 : (currentPlayer.position + 1)));
 			currentRoom.addRound(round);
 
 			if (currentRoom.getRoomCount() == (currentRoom.getRoundCount())) { // one round complete
 				//clearing rounds in room
 				nextPlayer = round.getLargerOneplayedBy();
 				currentRoom.clearRounds();
-				
-				setTimeout(function(){
-				//broadcast card clear
-				io.to(currentRoom.roomId).emit(constants.SOCKET_EVENTS.CLEAR_TABLE, "ROUND CLEARED REMOVE CARD FROM TABLE");
-				io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
 
-				},1000);
+				setTimeout(function () {
+					//broadcast card clear
+
+					io.to(currentRoom.roomId).emit(constants.SOCKET_EVENTS.CLEAR_TABLE, "ROUND CLEARED REMOVE CARD FROM TABLE");
+					io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
+
+				}, 1500);
 
 			}
 			//notify next player to  play
-			else{
-				console.log("NEXT PLAYER",nextPlayer);
+			else {
+				console.log("NEXT PLAYER", nextPlayer);
 				io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
 
 			}
 
 		}
-		
+
 		/** DIFFERENT CLUB CONDITION */
 		else {
 
@@ -260,39 +262,28 @@ io.on('connection', function (socket) {
 			cardToSendToPlayer.push(playedData.card[0]);//current played card since that round is not saved
 
 			roundsInRoom = currentRoom.getRounds();
-			if(roundsInRoom.length > 0) {
+			if (roundsInRoom.length > 0) {
 				for (var i = 0; i < roundsInRoom.length; i++) {
-					cardToSendToPlayer.push(roundsInRoom[i].playedCard); 
+					cardToSendToPlayer.push(roundsInRoom[i].playedCard);
 				}
 			}
-			
-			
-			
-			setTimeout(function(){
-				//broadcast card clear
-				currentRoom.clearRounds();
-				io.to(currentRoom.roomId).emit(constants.SOCKET_EVENTS.CLEAR_TABLE, "ROUND CLEARED REMOVE CARD FROM TABLE");
 
-				},2000);
-			
-			
 			var nextPlayer = socket.largerOnePlayedBy;
 			nextPlayer.card = [];
 			nextPlayer.card = cardToSendToPlayer;
-			
-			console.log("NEXT PLAYER",nextPlayer);
+
+			console.log("NEXT PLAYER", nextPlayer);
 
 			io.sockets.connected[socket.largerOnePlayedBy.id].emit(constants.SOCKET_EVENTS.ADD_CARD, JSON.stringify(nextPlayer));
-			io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
 
-			
-			//why no changes :( 
+			setTimeout(function () {
+				//broadcast card clear
+				currentRoom.clearRounds();
+				io.to(currentRoom.roomId).emit(constants.SOCKET_EVENTS.CLEAR_TABLE, "ROUND CLEARED REMOVE CARD FROM TABLE");
+				io.sockets.connected[nextPlayer.id].emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
+			}, 1500);
 
 		}
-
-
-
-
 
 
 	});
@@ -300,9 +291,4 @@ io.on('connection', function (socket) {
 
 
 });
-
-
-
-
-
 

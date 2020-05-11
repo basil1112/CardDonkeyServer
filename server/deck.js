@@ -109,7 +109,7 @@ function isSameClub(cardId1, cardId2) {
 		console.log("card1Club ="+card1Club);
 	var card2Club = getClub(cardId2);
 		console.log("card1Club ="+card2Club);
-	return card1Club == card2Club;
+	return card1Club === card2Club;
 }
 
 function getClub(cardId) {
