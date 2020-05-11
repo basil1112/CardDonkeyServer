@@ -29,7 +29,7 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json({ limit: '100mb' }));
 
 
-app.get('/', function (req, res) {
+app.get('/test', function (req, res) {
 	console.log("SOMETHING");
 	res.sendFile(__dirname + '/index.html');
 });
