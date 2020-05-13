@@ -77,7 +77,7 @@ io.on('connection', function (socket) {
 
 		var joinPlayerData = JSON.parse(data);
 		var joinPlayerInfo = joinPlayerData.playerObj;
-		
+
 		if (roomList.get(joinPlayerData.roomId).roomTotalCount >= (roomList.get(joinPlayerData.roomId).player).length) {
 
 			socket.join(roomList.get(joinPlayerData.roomId).roomId);
@@ -108,8 +108,8 @@ io.on('connection', function (socket) {
 		var shuffledDeck = Deck.shuffle(NewDeck);
 		var currentRoom = roomList.get(data.roomId);
 		var totPlayerNow = currentRoom.player.length;
-		currentRoom.roomTotalCount = totPlayerNow;
-
+		roomList.get(data.roomId).roomTotalCount = totPlayerNow;
+		currentRoom = roomList.get(data.roomId);
 		var totalPlayersInRoom = currentRoom.roomTotalCount;
 
 		for (i = 0; i < shuffledDeck.length; i++) {
