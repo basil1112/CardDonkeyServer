@@ -160,6 +160,7 @@ io.on('connection', function (socket) {
 
 		for (i = 0; i < totalPlayersInRoom; i++) {
 			console.log(currentRoom.player[i].id)
+			currentRoom.player[i].setTotalPlayerRoom(totalPlayersInRoom);
 			io.sockets.connected[currentRoom.player[i].id].emit(constants.SOCKET_EVENTS.STARTED_GAME, JSON.stringify(currentRoom.player[i]));
 		}
 
@@ -236,6 +237,8 @@ io.on('connection', function (socket) {
 				//clearing rounds in room
 				nextPlayer = round.getLargerOneplayedBy();
 				currentRoom.clearRounds();
+
+				//todo loop remove card form users
 
 				setTimeout(function () {
 					//broadcast card clear
