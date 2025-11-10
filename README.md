@@ -1,4 +1,3 @@
 ﻿# CardDonkeyServer
  
-Known Issue, Socket IO 
--message are so delayed in client side, which is really anoying 
+Server side scripting for Donkey Master using NODE JS EXPRESS SERVER AND SOCKET IO 
