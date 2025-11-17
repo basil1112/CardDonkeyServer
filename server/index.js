@@ -461,6 +461,127 @@ io.on('connection', (socket) => {
     }
   });
 
+
+  socket.on(constants.SOCKET_EVENTS.RESTART_GAME, (data) => {
+    try {
+        console.log('🔄 RESTART_GAME received');
+        
+        const gameData = JSON.parse(data);
+        const roomId = String(gameData.roomId);
+        const currentRoom = roomList.get(roomId);
+
+        if (!currentRoom) {
+            console.log('❌ Room not found for RESTART_GAME:', roomId);
+            socket.emit('error', { message: 'Room not found' });
+            return;
+        }
+
+        // Verify requester is room creator
+        if (currentRoom.socketId !== socket.id) {
+            console.log('❌ Unauthorized RESTART_GAME attempt by:', socket.id);
+            socket.emit('error', { message: 'Only room creator can restart the game' });
+            return;
+        }
+
+        console.log(`🔄 Restarting game for room: ${currentRoom.roomId}`);
+
+
+
+        // 1. Reset all players' cards and states
+        currentRoom.player.forEach(player => {
+            player.card = [];           // Clear cards
+            player.setTurn(false);      // Reset turn
+            player.hasWon = false;      // Reset won status
+            console.log(`🔄 Reset player: ${player.name}`);
+        });
+
+        // Broadcast table clear to all players in that room
+        io.to(roomId).emit(constants.SOCKET_EVENTS.CLEAR_TABLE, {
+                        message: "ROUND COMPLETED",
+                        roundWinner: "",
+                        largestCard: -1,
+                        newWinners: [],
+                        roomId: roomId
+                    });
+
+        // 2. Clear any existing rounds
+        currentRoom.clearRounds();
+
+        // 3. Create and shuffle new deck
+        const newDeck = Deck.getDeck();
+        const shuffledDeck = Deck.shuffle(newDeck);
+        const totalPlayersInRoom = currentRoom.player.length;
+
+        console.log(`🃏 Dealing ${shuffledDeck.length} cards to ${totalPlayersInRoom} players`);
+
+        let firstPlayer = null;
+
+        // 4. Deal cards and find Ace of Spades
+        shuffledDeck.forEach((cardId, index) => {
+            const playerIndex = index % totalPlayersInRoom;
+            if (currentRoom.player[playerIndex]) {
+                currentRoom.player[playerIndex].addCard(cardId);
+                if (cardId === 51) {
+                    firstPlayer = currentRoom.player[playerIndex];
+                    console.log(`⭐ Ace of Spades dealt to: ${firstPlayer.name}`);
+                }
+            }
+        });
+
+        // 5. Sort all players' cards
+        currentRoom.player.forEach(player => {
+            player.card = sortCardsBySuit(player.card);
+        });
+
+        // 6. Set turn for the player with Ace of Spades
+        if (firstPlayer) {
+            firstPlayer.setTurn(true);
+            console.log(`🎯 First turn set to: ${firstPlayer.name}`);
+        } else {
+            currentRoom.player[0].setTurn(true);
+            console.log(`🎯 First turn set to first player: ${currentRoom.player[0].name}`);
+        }
+
+        // 7. Notify all players - game has restarted
+        io.to(currentRoom.roomId).emit('game_restarted', {
+            message: 'Game has been restarted!',
+            roomId: currentRoom.roomId,
+            playerCount: totalPlayersInRoom
+        });
+
+        // 8. Send game start to all players with fresh state
+        currentRoom.player.forEach((player) => {
+            player.setTotalPlayerRoom(totalPlayersInRoom);
+            
+            const playerData = {
+                ...player,
+                currentTurnPlayer: firstPlayer ? firstPlayer.id : currentRoom.player[0].id,
+                currentTurnPlayerName: firstPlayer ? firstPlayer.name : currentRoom.player[0].name
+            };
+            
+            io.to(player.id).emit(constants.SOCKET_EVENTS.STARTED_GAME, JSON.stringify(playerData));
+            
+            if (player.isMyTurn) {
+                io.to(player.id).emit(constants.SOCKET_EVENTS.TURN_UPDATE, true);
+            }
+        });
+
+        // 9. Broadcast turn information
+        io.to(currentRoom.roomId).emit('turn_changed', {
+            playerId: firstPlayer ? firstPlayer.id : currentRoom.player[0].id,
+            playerName: firstPlayer ? firstPlayer.name : currentRoom.player[0].name,
+            message: `${firstPlayer ? firstPlayer.name : currentRoom.player[0].name} has the first turn!`
+        });
+
+        console.log(`✅ Game restarted successfully for room: ${currentRoom.roomId}`);
+
+    } catch (error) {
+        console.error('❌ Error in RESTART_GAME:', error);
+        socket.emit('error', { message: 'Failed to restart game', error: error.message });
+    }
+});
+
+
   // TABLE_ROUND: player plays a card - ENHANCED WITH PROPER WINNER HANDLING
 socket.on(constants.SOCKET_EVENTS.TABLE_ROUND, (data) => {
     try {
@@ -544,12 +665,7 @@ socket.on(constants.SOCKET_EVENTS.TABLE_ROUND, (data) => {
                 message: winCheck.message,
                 roomId: currentRoom.roomId
             });
-            
-            setTimeout(() => {
-                roomList.delete(roomId);
-                console.log(`🧹 Removed completed game room: ${roomId}`);
-            }, 30000);
-            
+             
             return;
         }
 
@@ -768,6 +884,67 @@ socket.on(constants.SOCKET_EVENTS.TABLE_ROUND, (data) => {
         socket.emit('error', { message: 'Failed to play card', error: error.message });
     }
 });
+
+
+socket.on(constants.SOCKET_EVENTS.LEAVE_ROOM, (data) => {
+  try {
+    console.log('👋 LEAVE_ROOM received from:', socket.id);
+    
+    const gameData = JSON.parse(data);
+    const roomId = String(gameData.roomId);
+    const room = roomList.get(roomId);
+
+    if (!room) {
+      console.log('❌ Room not found for LEAVE_ROOM:', roomId);
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    // Find and remove the player
+    const playerIndex = room.player.findIndex(p => p.id === socket.id);
+    if (playerIndex !== -1) {
+      const playerName = room.player[playerIndex].name;
+      const isHost = room.socketId === socket.id;
+      room.player.splice(playerIndex, 1);
+      console.log(`🗑️ Removed ${playerName} from room ${roomId}`);
+      
+      // Notify other players in the room
+      io.to(roomId).emit('player_left', { 
+        playerId: socket.id, 
+        playerName: playerName,
+        wasHost: isHost,
+        remainingPlayers: room.player.length
+      });
+
+      // Send updated room state to remaining players
+      io.to(roomId).emit('room_updated', JSON.stringify(room));
+
+      // If the host left, assign a new host
+      if (isHost && room.player.length > 0) {
+        room.socketId = room.player[0].id;
+        console.log(`👑 New host assigned: ${room.player[0].name}`);
+        io.to(roomId).emit('host_changed', {
+          newHostId: room.socketId,
+          newHostName: room.player[0].name
+        });
+      }
+
+      // Remove empty rooms
+      if (room.player.length === 0) {
+        roomList.delete(roomId);
+        console.log(`🧹 Removed empty room: ${roomId}`);
+      }
+
+      console.log(`✅ LEAVE_ROOM completed for room: ${roomId}`);
+    } else {
+      console.log('❌ Player not found in room:', socket.id);
+    }
+  } catch (error) {
+    console.error('❌ Error in LEAVE_ROOM:', error);
+    socket.emit('error', { message: 'Failed to leave room', error: error.message });
+  }
+});
+
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {

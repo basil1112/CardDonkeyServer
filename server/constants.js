@@ -11,7 +11,9 @@ const SOCKET_EVENTS = Object.freeze({
     "ADD_CARD_TABLE": "ADD_CARD_TABLE",
     "CLEAR_TABLE": "CLEAR_TABLE",
     "ADD_CARD": "ADD_CARD",
-    "ON_CONNECTION": "on_connection"
+    "ON_CONNECTION": "on_connection",
+    "RESTART_GAME": "RESTART_GAME",
+    "LEAVE_ROOM": "LEAVE_ROOM",
 });
 
 function GETNEWPIN(connection, onPinGenerationSuccess) {
