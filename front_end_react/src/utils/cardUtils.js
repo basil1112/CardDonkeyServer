@@ -23,6 +23,12 @@ export const getCardDisplay = (cardId) => {
     spades: '♠'
   }
 
+  const suitMajor = {
+    k: '♚',
+    q: '♛',
+    j: '♔'
+  }
+
   const suitColors = {
     diamonds: 'text-red-600',
     clubs: 'text-black',
@@ -34,7 +40,8 @@ export const getCardDisplay = (cardId) => {
     symbol: suitSymbols[suit],
     color: suitColors[suit],
     rank,
-    suit
+    suit,
+    suitMajor: suitMajor[rank.toLowerCase()] || null
   }
 }
 
