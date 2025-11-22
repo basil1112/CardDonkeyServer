@@ -86,7 +86,8 @@ Sequence of plays:
 
 Players 5 and 6 do **not** play.
 
-We now evaluate only the first four cards.
+We now evaluate only the first three cards.(
+We do NOT include Player 4’s off-suit card when finding the highest lead-suit card.)
 
 - Highest Spade: **A♠**  
 - Penalty goes to: **Player 1**
