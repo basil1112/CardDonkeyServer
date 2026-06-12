@@ -113,7 +113,15 @@ const GameTable = ({ gameState, socket, onPlayCard, onStartGame, onBackToLobby }
       }
     }
 
-
+    // Close the game-over modal and reset table for ALL players when host starts a new game
+    const handleGameRestarted = (data) => {
+      console.log('🔄 Game restarted by host:', data)
+      setGameOver(null)
+      setShowGameOverModal(false)
+      setTableCards([])
+      setCurrentTurn('')
+      setPlayers(prev => prev.map(p => ({ ...p, cards: [], cardCount: 0, hasWon: false })))
+    }
 
     socket.on('ADD_CARD_TABLE', handleAddCardToTable)
     socket.on('CLEAR_TABLE', handleClearTable)
@@ -123,6 +131,7 @@ const GameTable = ({ gameState, socket, onPlayCard, onStartGame, onBackToLobby }
     socket.on('room_updated', handleRoomUpdated)
     socket.on('game_over', handleGameOver)
     socket.on('player_won', handlePlayerWon)
+    socket.on('game_restarted', handleGameRestarted)
 
     return () => {
       socket.off('ADD_CARD_TABLE', handleAddCardToTable)
@@ -133,6 +142,7 @@ const GameTable = ({ gameState, socket, onPlayCard, onStartGame, onBackToLobby }
       socket.off('room_updated', handleRoomUpdated)
       socket.off('game_over', handleGameOver)
       socket.off('player_won', handlePlayerWon)
+      socket.off('game_restarted', handleGameRestarted)
     }
   }, [socket, gameState.room, players])
 

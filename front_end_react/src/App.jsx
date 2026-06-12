@@ -195,6 +195,11 @@ function App() {
       addMessage(data.message, 'error')
     }
 
+    // Reset gameStarted so the STARTED_GAME event that follows re-triggers initialization
+    const handleGameRestarted = () => {
+      updateGameState({ gameStarted: false })
+    }
+
     socket.on('on_connection', handleConnection)
     socket.on('error', handleError)
     socket.on('AFTER_GAME_CREATED', handleGameCreated)
@@ -209,6 +214,7 @@ function App() {
     socket.on('CLEAR_TABLE', handleClearTable)
     socket.on('player_won', handlePlayerWon)
     socket.on('game_over', handleGameOver)
+    socket.on('game_restarted', handleGameRestarted)
 
     return () => {
       socket.off('on_connection', handleConnection)
@@ -225,6 +231,7 @@ function App() {
       socket.off('CLEAR_TABLE', handleClearTable)
       socket.off('player_won', handlePlayerWon)
       socket.off('game_over', handleGameOver)
+      socket.off('game_restarted', handleGameRestarted)
     }
   }, [socket, gameState.room])
 
