@@ -726,7 +726,26 @@ socket.on(constants.SOCKET_EVENTS.TABLE_ROUND, (data) => {
                 penaltyPlayer.hasWon = false;
                 console.log(`🔄 ${penaltyPlayer.name} is no longer a winner (received penalty cards)`);
             }
-            
+
+            // If currentPlayer played their last card (even as wrong suit), they have won.
+            // The penalty path never reaches the normal round-completion block, so hasWon
+            // must be set here — otherwise the next round still counts them as active.
+            const playersWhoWonInPenalty = currentRoom.player.filter(p =>
+                p.card.length === 0 && !p.hasWon
+            );
+            if (playersWhoWonInPenalty.length > 0) {
+                playersWhoWonInPenalty.forEach(player => {
+                    player.hasWon = true;
+                    player.isMyTurn = false;
+                });
+                console.log(`🎉 ${playersWhoWonInPenalty.map(p => p.name).join(', ')} won (ran out of cards during penalty round)`);
+                io.to(currentRoom.roomId).emit('player_won', {
+                    winners: playersWhoWonInPenalty.map(p => ({ id: p.id, name: p.name })),
+                    message: `${playersWhoWonInPenalty.map(w => w.name).join(', ')} won! 🎉`,
+                    roomId: currentRoom.roomId
+                });
+            }
+
             // Notify all players about the penalty event and update hands
             io.to(currentRoom.roomId).emit('penalty_applied', {
                 wrongPlayerName: currentPlayer.name,
