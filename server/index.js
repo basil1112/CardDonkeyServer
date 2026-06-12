@@ -425,6 +425,9 @@ io.on('connection', (socket) => {
         console.log(`🎯 First turn set to first player: ${currentRoom.player[0].name}`);
       }
 
+      // The very first card played must be the Ace of Spades
+      currentRoom.firstCardOfGamePlayed = false;
+
       // Send game start to all players with their initial state
       currentRoom.player.forEach((player) => {
         player.setTotalPlayerRoom(totalPlayersInRoom);
@@ -533,6 +536,9 @@ io.on('connection', (socket) => {
             player.card = sortCardsBySuit(player.card);
         });
 
+        // The very first card played must be the Ace of Spades
+        currentRoom.firstCardOfGamePlayed = false;
+
         // 6. Set turn for the player with Ace of Spades
         if (firstPlayer) {
             firstPlayer.setTurn(true);
@@ -613,6 +619,14 @@ socket.on(constants.SOCKET_EVENTS.TABLE_ROUND, (data) => {
             socket.emit('error', { message: 'Card not found in your hand or already played' });
             return;
         }
+
+        // Enforce that the very first card of the game must be the Ace of Spades (card 51)
+        if (!currentRoom.firstCardOfGamePlayed && playedData.card[0] !== Deck.SPADES_ACE) {
+            console.log(`❌ First card of game must be Ace of Spades, got: ${playedData.card[0]}`);
+            socket.emit('error', { message: 'You must play the Ace of Spades as the first card' });
+            return;
+        }
+        currentRoom.firstCardOfGamePlayed = true;
 
         currentPlayer.card.splice(cardIndex, 1);
         console.log(`✅ Removed card from ${currentPlayer.name}'s hand. Cards left: ${currentPlayer.card.length}`);
